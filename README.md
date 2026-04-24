@@ -10,9 +10,19 @@ The official Toggl Track browser extension adds a timer button to the Todoist we
 
 1. Right-click any task (or click `⋯`) in Todoist
 2. Select **Integrations** → **Start Toggl timer** or **Stop Toggl timer**
-3. Confirm in the modal — the timer starts or stops in Toggl Track immediately
+3. A modal appears — review or edit the details, then confirm
 
 The extension is a small HTTPS web service that Todoist calls when you invoke it. It verifies the request, calls the Toggl Track API v9, and returns a confirmation notification.
+
+### Start Timer card
+
+- **Description** — pre-filled with the Todoist task name; editable before starting
+- **Project** — pre-filled with the task's Todoist project name (if [sync is enabled](#settings)); editable or clearable
+- If a Toggl timer is already running with the same description, the card shows a notice instead and offers an **Ok** button to dismiss without starting a duplicate
+
+### Stop Timer card
+
+Displays the description of the currently running timer and a **Stop Timer** button. If no timer is running, a message is shown instead.
 
 ## Requirements
 
@@ -49,6 +59,7 @@ TODOIST_VERIFICATION_TOKEN=   # From Todoist App Management Console
 TOGGL_API_TOKEN=              # From Toggl Track profile settings
 TOGGL_WORKSPACE_ID=           # Your Toggl workspace ID (numeric)
 PORT=3000
+LOG_LEVEL=info                # trace | debug | info | warn | error | fatal | silent
 ```
 
 **Getting your Toggl API token:** Toggl Track → Profile → API Token (bottom of the page)
@@ -77,6 +88,14 @@ npm run build
 npm start
 ```
 
+## Settings
+
+Runtime settings are stored in `settings.json` (excluded from git) and can be changed via the **Settings** UI Extension in Todoist.
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `useTodoistProject` | `true` | Pre-fill the **Project** field in the Start Timer card with the task's Todoist project name |
+
 ## Deployment
 
 The service needs a public HTTPS URL. Recommended options:
@@ -90,6 +109,7 @@ The service needs a public HTTPS URL. Recommended options:
 - TypeScript
 - Express
 - [@doist/ui-extensions-core](https://www.npmjs.com/package/@doist/ui-extensions-core)
+- [pino](https://www.npmjs.com/package/pino) — structured JSON logging
 - Toggl Track API v9
 
 ## Licence
