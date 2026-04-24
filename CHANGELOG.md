@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/avinsonmassif/todoist-toggl-extension/compare/todoist-toggl-extension-v1.1.0...todoist-toggl-extension-v1.2.0) (2026-04-24)
+
+
+### Features
+
+* Test the build again ([00ff993](https://github.com/avinsonmassif/todoist-toggl-extension/commit/00ff993b4672aa75c4c4d8a0927bfdd3aba56b0f))
+
 ## [1.1.0](https://github.com/avinsonmassif/todoist-toggl-extension/compare/todoist-toggl-extension-v1.0.0...todoist-toggl-extension-v1.1.0) (2026-04-24)
 
 
