@@ -1,0 +1,14 @@
+services:
+  todoist-toggl-extension:
+    image: ghcr.io/avinsonmassif/todoist-toggl-extension:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - TODOIST_VERIFICATION_TOKEN=${TODOIST_VERIFICATION_TOKEN}
+      - TOGGL_API_TOKEN=${TOGGL_API_TOKEN}
+      - TOGGL_WORKSPACE_ID=${TOGGL_WORKSPACE_ID}
+      - LOG_LEVEL=info
+      - PORT=3000
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { join } from 'path'
 
-const SETTINGS_PATH = join(process.cwd(), 'settings.json')
+const SETTINGS_PATH = join(process.cwd(), 'data', 'settings.json')
 
 export interface AppSettings {
   useTodoistProject: boolean
