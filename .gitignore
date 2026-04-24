@@ -145,3 +145,4 @@ vite.config.ts.timestamp-*
 !.vscode/launch.json
 !.vscode/extensions.json
 
+settings.json
