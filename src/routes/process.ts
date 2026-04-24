@@ -4,6 +4,7 @@ import { DoistCard, TextBlock, TextInput, SubmitAction } from '@doist/ui-extensi
 import { startTimer, getCurrentTimer, stopTimer, findOrCreateProject } from '../services/toggl'
 import { getTaskProjectName } from '../services/todoist'
 import { loadSettings } from '../services/settings'
+import { logger } from '../utils/logger'
 
 export async function startHandler(req: Request, res: Response): Promise<void> {
   try {
@@ -73,11 +74,11 @@ export async function startHandler(req: Request, res: Response): Promise<void> {
     if (actionType === 'submit' && actionId === 'start-timer') {
       const description = body.action.inputs?.['description']?.trim() || taskContent
       const projectName = body.action.inputs?.['project-name']?.trim()
-      console.log(`[process] start-timer submit: description=${description}, projectName=${projectName ?? 'none'}`)
+      logger.debug(`[process] start-timer submit: description=${description}, projectName=${projectName ?? 'none'}`)
       let projectId: number | undefined
       if (projectName) {
         projectId = await findOrCreateProject(projectName)
-        console.log(`[process] resolved projectId=${projectId}`)
+        logger.debug(`[process] resolved projectId=${projectId}`)
       }
       await startTimer(description, projectId)
       const response: DoistCardResponse = {

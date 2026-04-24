@@ -1,3 +1,5 @@
+import { logger } from '../utils/logger'
+
 interface TogglTimeEntry {
   id: number
   description: string
@@ -18,7 +20,7 @@ function authHeader(): string {
 
 export async function findOrCreateProject(name: string): Promise<number> {
   const workspaceId = process.env['TOGGL_WORKSPACE_ID'] ?? ''
-  console.log(`[toggl] listing projects in workspace ${workspaceId}`)
+  logger.debug(`[toggl] listing projects in workspace ${workspaceId}`)
   const listRes = await fetch(
     `https://api.track.toggl.com/api/v9/workspaces/${workspaceId}/projects`,
     { headers: { Authorization: authHeader() } },
@@ -28,14 +30,14 @@ export async function findOrCreateProject(name: string): Promise<number> {
     throw new Error(`Toggl list projects ${listRes.status}: ${body}`)
   }
   const projects = await listRes.json() as TogglProject[]
-  console.log(`[toggl] found ${projects.length} projects, looking for "${name}"`)
+  logger.debug(`[toggl] found ${projects.length} projects, looking for "${name}"`)
   const existing = projects.find((p) => p.name === name)
   if (existing) {
-    console.log(`[toggl] matched existing project id=${existing.id}`)
+    logger.debug(`[toggl] matched existing project id=${existing.id}`)
     return existing.id
   }
 
-  console.log(`[toggl] creating project "${name}"`)
+  logger.debug(`[toggl] creating project "${name}"`)
   const createRes = await fetch(
     `https://api.track.toggl.com/api/v9/workspaces/${workspaceId}/projects`,
     {
@@ -49,13 +51,13 @@ export async function findOrCreateProject(name: string): Promise<number> {
     throw new Error(`Toggl create project ${createRes.status}: ${body}`)
   }
   const created = await createRes.json() as TogglProject
-  console.log(`[toggl] created project id=${created.id}`)
+  logger.debug(`[toggl] created project id=${created.id}`)
   return created.id
 }
 
 export async function startTimer(description: string, projectId?: number): Promise<TogglTimeEntry> {
   const workspaceId = process.env['TOGGL_WORKSPACE_ID'] ?? ''
-  console.log(`[toggl] starting timer: "${description}" project_id=${projectId ?? 'none'}`)
+  logger.debug(`[toggl] starting timer: "${description}" project_id=${projectId ?? 'none'}`)
   const res = await fetch(
     `https://api.track.toggl.com/api/v9/workspaces/${workspaceId}/time_entries`,
     {
@@ -81,7 +83,7 @@ export async function startTimer(description: string, projectId?: number): Promi
     throw new Error(`Toggl start timer ${res.status}: ${body}`)
   }
   const entry = await res.json() as TogglTimeEntry
-  console.log(`[toggl] timer started id=${entry.id}`)
+  logger.debug(`[toggl] timer started id=${entry.id}`)
   return entry
 }
 

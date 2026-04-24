@@ -4,6 +4,7 @@ import type { Request } from 'express'
 import { verifyTodoist } from './middleware/verify'
 import { startHandler, stopHandler } from './routes/process'
 import { settingsHandler } from './routes/settings'
+import { logger } from './utils/logger'
 
 const app = express()
 
@@ -22,4 +23,4 @@ app.post('/process-stop', stopHandler)
 app.post('/settings', settingsHandler)
 
 const PORT = Number(process.env['PORT'] ?? 3000)
-app.listen(PORT, () => console.log(`todoist-toggl-extension listening on :${PORT}`))
+app.listen(PORT, () => logger.info(`todoist-toggl-extension listening on :${PORT}`))
