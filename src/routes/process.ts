@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
 import type { DoistCardRequest, DoistCardResponse } from '@doist/ui-extensions-core'
 import { DoistCard, TextBlock, TextInput, SubmitAction } from '@doist/ui-extensions-core'
-import { startTimer, getCurrentTimer, stopTimer, findOrCreateProject } from '../services/toggl'
+import { startTimer, getCurrentTimer, getTimerName, stopTimer } from '../services/toggl'
 import { getTaskProjectName } from '../services/todoist'
 import { loadSettings } from '../services/settings'
 import { logger } from '../utils/logger'
@@ -10,16 +10,18 @@ export async function startHandler(req: Request, res: Response): Promise<void> {
   try {
     const body = req.body as DoistCardRequest
     const { actionType, actionId, params } = body.action
-    const data = params as { contentPlain?: string; content?: string } | undefined
+    const data = params as { contentPlain?: string; content?: string; sourceId?: string; url?: string } | undefined
     const taskContent = data?.contentPlain ?? data?.content ?? 'Task'
 
     if (actionType === 'initial') {
-      const sourceId = (data as { sourceId?: string } | undefined)?.sourceId
+      const sourceId = data?.sourceId
+      const sourceUrl = data?.url
       const appToken = req.headers['x-todoist-apptoken'] as string | undefined
       const settings = loadSettings()
 
       const running = await getCurrentTimer()
-      if (running && running.description.trim().toLowerCase() === taskContent.trim().toLowerCase()) {
+      const runningName = running ? await getTimerName(running) : ''
+      if (running && runningName.trim().toLowerCase() === taskContent.trim().toLowerCase()) {
         const card = new DoistCard()
         const text = new TextBlock(`"${taskContent}" is already running in Toggl.`)
         text.wrap = true
@@ -59,7 +61,7 @@ export async function startHandler(req: Request, res: Response): Promise<void> {
       action.id = 'start-timer'
       action.title = 'Start Timer'
       action.style = 'positive'
-      action.data = { sourceId }
+      action.data = { sourceId, sourceUrl }
       card.addAction(action)
       const response: DoistCardResponse = { card }
       res.json(response)
@@ -74,13 +76,11 @@ export async function startHandler(req: Request, res: Response): Promise<void> {
     if (actionType === 'submit' && actionId === 'start-timer') {
       const description = body.action.inputs?.['description']?.trim() || taskContent
       const projectName = body.action.inputs?.['project-name']?.trim()
-      logger.debug(`[process] start-timer submit: description=${description}, projectName=${projectName ?? 'none'}`)
-      let projectId: number | undefined
-      if (projectName) {
-        projectId = await findOrCreateProject(projectName)
-        logger.debug(`[process] resolved projectId=${projectId}`)
-      }
-      await startTimer(description, projectId)
+      const actionData = body.action.data as { sourceId?: string; sourceUrl?: string } | undefined
+      const sourceUrl = actionData?.sourceUrl
+        || (actionData?.sourceId ? `https://app.todoist.com/app/task/${actionData.sourceId}` : undefined)
+      logger.debug(`[process] start-timer submit: description=${description}, projectName=${projectName ?? 'none'}, sourceUrl=${sourceUrl ?? 'none'}`)
+      await startTimer({ name: description, projectName: projectName || undefined, sourceUrl })
       const response: DoistCardResponse = {
         bridges: [
           { bridgeActionType: 'display.notification', notification: { type: 'success', text: 'Timer started' } },
@@ -110,7 +110,7 @@ export async function stopHandler(req: Request, res: Response): Promise<void> {
       const running = await getCurrentTimer()
       const card = new DoistCard()
       if (running) {
-        const text = new TextBlock(running.description || 'Running timer')
+        const text = new TextBlock((await getTimerName(running)) || 'Running timer')
         text.wrap = true
         card.addItem(text)
         const action = new SubmitAction()

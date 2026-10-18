@@ -1,122 +1,98 @@
 import { logger } from '../utils/logger'
 
-interface TogglTimeEntry {
+// Toggl 2.0 (focus.toggl.com) API, scoped to one organisation and workspace.
+const API_BASE = 'https://focus.toggl.com/api'
+
+export interface TogglTimeEntry {
   id: number
-  description: string
-  duration: number
-  workspace_id: number
+  description?: string
+  task_id?: number | null
+  project_id?: number
+  start?: string
 }
 
-interface TogglProject {
+interface TogglTask {
   id: number
   name: string
-  workspace_id: number
 }
 
-function authHeader(): string {
-  const token = process.env['TOGGL_API_TOKEN'] ?? ''
-  return 'Basic ' + Buffer.from(`${token}:api_token`).toString('base64')
+interface StartFromDescriptionResponse {
+  time_entry: TogglTimeEntry
+  task?: TogglTask
+  task_created?: boolean
+  project_created?: boolean
 }
 
-export async function findOrCreateProject(name: string): Promise<number> {
+export interface StartTimerOptions {
+  name: string
+  projectName?: string | undefined
+  sourceUrl?: string | undefined
+}
+
+function workspaceUrl(path: string): string {
+  const organizationId = process.env['TOGGL_ORGANIZATION_ID'] ?? ''
   const workspaceId = process.env['TOGGL_WORKSPACE_ID'] ?? ''
-  logger.debug(`[toggl] listing projects in workspace ${workspaceId}`)
-  const listRes = await fetch(
-    `https://api.track.toggl.com/api/v9/workspaces/${workspaceId}/projects`,
-    { headers: { Authorization: authHeader() } },
-  )
-  if (!listRes.ok) {
-    const body = await listRes.text()
-    throw new Error(`Toggl list projects ${listRes.status}: ${body}`)
-  }
-  const projects = await listRes.json() as TogglProject[]
-  logger.debug(`[toggl] found ${projects.length} projects, looking for "${name}"`)
-  const existing = projects.find((p) => p.name === name)
-  if (existing) {
-    logger.debug(`[toggl] matched existing project id=${existing.id}`)
-    return existing.id
-  }
-
-  logger.debug(`[toggl] creating project "${name}"`)
-  const createRes = await fetch(
-    `https://api.track.toggl.com/api/v9/workspaces/${workspaceId}/projects`,
-    {
-      method: 'POST',
-      headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, workspace_id: Number(workspaceId), active: true }),
-    },
-  )
-  if (!createRes.ok) {
-    const body = await createRes.text()
-    throw new Error(`Toggl create project ${createRes.status}: ${body}`)
-  }
-  const created = await createRes.json() as TogglProject
-  logger.debug(`[toggl] created project id=${created.id}`)
-  return created.id
+  return `${API_BASE}/organizations/${organizationId}/workspaces/${workspaceId}/${path}`
 }
 
-export async function startTimer(description: string, projectId?: number): Promise<TogglTimeEntry> {
-  const workspaceId = process.env['TOGGL_WORKSPACE_ID'] ?? ''
-  logger.debug(`[toggl] starting timer: "${description}" project_id=${projectId ?? 'none'}`)
-  const res = await fetch(
-    `https://api.track.toggl.com/api/v9/workspaces/${workspaceId}/time_entries`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: authHeader(),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        duration: -1,
-        start: new Date().toISOString(),
-        description,
-        workspace_id: Number(workspaceId),
-        created_with: 'todoist-toggl-extension',
-        tags: [],
-        billable: false,
-        ...(projectId !== undefined && { project_id: projectId }),
-      }),
-    },
-  )
+function headers(): Record<string, string> {
+  return {
+    Authorization: `Bearer ${process.env['TOGGL_API_TOKEN'] ?? ''}`,
+    'Content-Type': 'application/json',
+  }
+}
+
+async function request<T>(label: string, method: string, path: string, body?: unknown): Promise<T | null> {
+  const res = await fetch(workspaceUrl(path), {
+    method,
+    headers: headers(),
+    ...(body !== undefined && { body: JSON.stringify(body) }),
+  })
   if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Toggl start timer ${res.status}: ${body}`)
+    const text = await res.text()
+    throw new Error(`Toggl ${label} ${res.status}: ${text}`)
   }
-  const entry = await res.json() as TogglTimeEntry
-  logger.debug(`[toggl] timer started id=${entry.id}`)
+  const text = res.status === 204 ? '' : await res.text()
+  return text ? JSON.parse(text) as T : null
+}
+
+// Starts a timer linked to a Toggl task. With a source URL the task is matched
+// by that URL (so each Todoist task maps to one Toggl task) and created if
+// missing. The project is matched by name and created if missing.
+export async function startTimer({ name, projectName, sourceUrl }: StartTimerOptions): Promise<TogglTimeEntry> {
+  logger.debug(`[toggl] starting timer: "${name}" project=${projectName ?? 'none'} url=${sourceUrl ?? 'none'}`)
+  const result = await request<StartFromDescriptionResponse>('start timer', 'POST', 'tracking/start-from-description', {
+    type: 'activity',
+    name,
+    extension_source: 'todoist',
+    create_task_if_not_found: true,
+    ...(sourceUrl
+      ? { extension_url: sourceUrl, resolution_strategy: 'uri' }
+      : { resolution_strategy: 'name_project' }),
+    ...(projectName && { project_name: projectName, create_project_if_not_found: true }),
+  })
+  if (!result?.time_entry) throw new Error('Toggl start timer returned no time entry')
+  const entry = result.time_entry
+  logger.debug(`[toggl] timer started id=${entry.id} task_id=${entry.task_id ?? 'none'} task_created=${result.task_created ?? false} project_created=${result.project_created ?? false}`)
   return entry
 }
 
 export async function getCurrentTimer(): Promise<TogglTimeEntry | null> {
-  const res = await fetch('https://api.track.toggl.com/api/v9/me/time_entries/current', {
-    headers: { Authorization: authHeader() },
-  })
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Toggl get current timer ${res.status}: ${body}`)
-  }
-  const data: unknown = await res.json()
-  if (data === null || data === undefined) return null
-  return data as TogglTimeEntry
+  return request<TogglTimeEntry>('get current timer', 'GET', 'tracking/current')
+}
+
+// The name Toggl shows for an entry: its description, else its task's name.
+export async function getTimerName(entry: TogglTimeEntry): Promise<string> {
+  if (entry.description) return entry.description
+  if (!entry.task_id) return ''
+  const task = await request<TogglTask>('get task', 'GET', `tasks/${entry.task_id}`)
+  return task?.name ?? ''
 }
 
 export async function stopTimer(): Promise<TogglTimeEntry> {
-  const entry = await getCurrentTimer()
+  const entry = await request<TogglTimeEntry>('stop timer', 'POST', 'tracking/stop', {
+    end: new Date().toISOString(),
+  })
   if (!entry) throw new Error('No running timer')
-  const workspaceId = process.env['TOGGL_WORKSPACE_ID'] ?? ''
-  const res = await fetch(
-    `https://api.track.toggl.com/api/v9/workspaces/${workspaceId}/time_entries/${entry.id}/stop`,
-    {
-      method: 'PATCH',
-      headers: {
-        Authorization: authHeader(),
-        'Content-Type': 'application/json',
-      },
-    },
-  )
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Toggl stop timer ${res.status}: ${body}`)
-  }
-  return res.json() as Promise<TogglTimeEntry>
+  return entry
 }
