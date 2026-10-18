@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/avinsonmassif/todoist-toggl-extension/compare/todoist-toggl-extension-v1.2.0...todoist-toggl-extension-v2.0.0) (2026-10-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* Toggl Track is no longer supported.
+
+### Features
+
+* switch from Toggl Track to Toggl 2.0 ([57452a3](https://github.com/avinsonmassif/todoist-toggl-extension/commit/57452a30209ff6c82dd7d08339662a5eb376bd5c))
+
 ## [1.2.0](https://github.com/avinsonmassif/todoist-toggl-extension/compare/todoist-toggl-extension-v1.1.0...todoist-toggl-extension-v1.2.0) (2026-04-24)
 
 
