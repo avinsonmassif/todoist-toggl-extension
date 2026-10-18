@@ -1,7 +1,7 @@
 {
   "name": "todoist-toggl-extension",
   "version": "1.2.0",
-  "description": "A Todoist UI Extension that adds **Start** and **Stop** Toggl Track timer actions to any task via the Todoist context menu. Works in the Todoist desktop app (Windows/Mac) and web app.",
+  "description": "A Todoist UI Extension that adds **Start** and **Stop** Toggl 2.0 timer actions to any task via the Todoist context menu. Works in the Todoist desktop app (Windows/Mac) and web app.",
   "main": "index.js",
   "scripts": {
     "dev": "nodemon --exec ts-node src/app.ts",
